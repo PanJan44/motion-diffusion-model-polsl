@@ -10,6 +10,7 @@ import enum
 import math
 
 import numpy as np
+from diffusion.logger import debug
 import torch
 import torch as th
 from copy import deepcopy
@@ -1308,6 +1309,7 @@ class GaussianDiffusion:
 
             if self.lambda_vel_rcxyz > 0.:
                 if self.data_rep == 'rot6d' and dataset.dataname in ['humanact12', 'uestc']:
+                    debug("Got to the lambda_vel_rcxyz check")
                     target_xyz = get_xyz(target) if target_xyz is None else target_xyz
                     model_output_xyz = get_xyz(model_output) if model_output_xyz is None else model_output_xyz
                     target_xyz_vel = (target_xyz[:, :, :, 1:] - target_xyz[:, :, :, :-1])
@@ -1317,6 +1319,7 @@ class GaussianDiffusion:
             if self.lambda_fc > 0.:
                 with torch.autograd.set_detect_anomaly(True):
                     if self.data_rep == 'rot6d' and dataset.dataname in ['humanact12', 'uestc']:
+                        debug("Got to the lambda_fc check")
                         target_xyz = get_xyz(target) if target_xyz is None else target_xyz
                         model_output_xyz = get_xyz(model_output) if model_output_xyz is None else model_output_xyz
                         # 'L_Ankle',  # 7, 'R_Ankle',  # 8 , 'L_Foot',  # 10, 'R_Foot',  # 11
@@ -1334,6 +1337,13 @@ class GaussianDiffusion:
             if self.lambda_vel > 0.:
                 target_vel = (target[..., 1:] - target[..., :-1])
                 model_output_vel = (model_output[..., 1:] - model_output[..., :-1])
+
+                debug(f"model_output: {model_output}")
+                debug(f"model_output.shape: {model_output.shape}")
+                debug(f"model_output_vel: {model_output_vel}")
+                debug(f"model_output[..., 1:] - {model_output[..., 1:]}")
+                debug(f"model_output[..., -1:] - {model_output[..., -1:]}")
+
                 terms["vel_mse"] = self.masked_l2(target_vel[:, :-1, :, :], # Remove last joint, is the root location!
                                                   model_output_vel[:, :-1, :, :],
                                                   mask[:, :, :, 1:])  # mean_flat((target_vel - model_output_vel) ** 2)
