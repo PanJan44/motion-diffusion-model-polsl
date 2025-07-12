@@ -40,7 +40,7 @@ def get_model_args(args, data):
 
     if args.dataset == 'humanml':
         data_rep = 'hml_vec'
-        njoints = 263
+        njoints = 221
         nfeats = 1
         all_goal_joint_names = ['pelvis'] + HML_EE_JOINT_NAMES
     elif args.dataset == 'kit':
@@ -59,7 +59,7 @@ def get_model_args(args, data):
     target_enc_layers = args.__dict__.get('target_enc_layers', 1)
 
     return {'modeltype': '', 'njoints': njoints, 'nfeats': nfeats, 'num_actions': num_actions,
-            'translation': True, 'pose_rep': 'rot6d', 'glob': True, 'glob_rot': True,
+            'translation': True, 'pose_rep': 'rotquat', 'glob': True, 'glob_rot': True,
             'latent_dim': args.latent_dim, 'ff_size': 1024, 'num_layers': args.layers, 'num_heads': 4,
             'dropout': 0.1, 'activation': "gelu", 'data_rep': data_rep, 'cond_mode': cond_mode,
             'cond_mask_prob': args.cond_mask_prob, 'action_emb': action_emb, 'arch': args.arch,

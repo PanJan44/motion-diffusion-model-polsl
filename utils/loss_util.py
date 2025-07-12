@@ -10,6 +10,18 @@ def angle_l2(angle1, angle2):
 def diff_l2(a, b):
     return (a - b) ** 2
 
+def normalize_quaternion(q):
+    return q / (q.norm(dim=-1, keepdim=True) + 1e-8)
+
+def quaternion_geodesic_distance(q1, q2):
+    q1, q2 = normalize_quaternion(q1), normalize_quaternion(q2)
+    dot = torch.sum(q1 * q2, dim=-1).clamp(-1.0, 1.0)
+    return 2.0 * torch.acos(torch.abs(dot))
+
+def quaternion_loss(q1, q2):
+    q1, q2 = normalize_quaternion(q1), normalize_quaternion(q2)
+    return 1.0 - torch.sum(q1 * q2, dim=-1) ** 2
+
 def masked_l2(a, b, mask, loss_fn=diff_l2, epsilon=1e-8, entries_norm=True):
     # assuming a.shape == b.shape == bs, J, Jdim, seqlen
     # assuming mask.shape == bs, 1, 1, seqlen
