@@ -1298,7 +1298,7 @@ class GaussianDiffusion:
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape  # [bs, njoints, nfeats, nframes]
             with open("debug_info.txt", 'a') as f:
-                print(f"data_rep: {self.data_rep}, dataname: {dataset.dataname}")
+                print(f"data_rep: {self.data_rep}, dataname: {dataset.dataname}", file=f)
                 print(f"Model output shape: {model_output.shape}", file=f)
 
                 terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
