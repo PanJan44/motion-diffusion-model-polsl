@@ -1298,7 +1298,7 @@ class GaussianDiffusion:
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape  # [bs, njoints, nfeats, nframes]
             with open("debug_info.txt", 'a') as f:
-                print(f"Model output: {model_output}", file=f)
+                print(f"Model output shape: {model_output.shape}", file=f)
 
                 terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
 
@@ -1344,8 +1344,8 @@ class GaussianDiffusion:
                             print(f"model_output: {model_output}", file=f)
                             print(f"model_output.shape: {model_output.shape}", file=f)
                             print(f"model_output_vel: {model_output_vel}", file=f)
-                            print(f"model_output[..., 1:] - {model_output[..., 1:]}", file=f)
-                            print(f"model_output[..., -1:] - {model_output[..., -1:]}", file=f)
+                            print(f"model_output[..., 1:]: {model_output[..., 1:]}", file=f, flush=True)
+                            print(f"model_output[..., -1:]: {model_output[..., -1:]}", file=f, flush=True)
 
                             terms["vel_mse"] = self.masked_l2(target_vel[:, :-1, :, :], # Remove last joint, is the root location!
                                                               model_output_vel[:, :-1, :, :],
