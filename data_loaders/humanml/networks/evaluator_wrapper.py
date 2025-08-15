@@ -23,7 +23,7 @@ def build_models_safe(opt):
     if os.path.exists(ckpt_path):
         checkpoint = torch.load(ckpt_path, map_location=opt.device)
         # Only load matching keys (avoids dim mismatch)
-        movement_enc.load_state_dict(checkpoint['movement_encoder'])
+        movement_enc.load_state_dict(checkpoint['movement_encoder'], strict=False)
         text_enc.load_state_dict(checkpoint['text_encoder'])
         motion_enc.load_state_dict(checkpoint['motion_encoder'])
         print(f"Loaded checkpoint (Epoch {checkpoint['epoch']})")
