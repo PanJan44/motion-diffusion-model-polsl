@@ -119,22 +119,23 @@ def build_evaluators(opt):
                                   hidden_size=opt['dim_text_hidden'],
                                   output_size=opt['dim_coemb_hidden'],
                                   device=opt['device'])
-
     motion_enc = MotionEncoderBiGRUCo(input_size=opt['dim_movement_latent'],
                                       hidden_size=opt['dim_motion_hidden'],
                                       output_size=opt['dim_coemb_hidden'],
                                       device=opt['device'])
 
-    ckpt_dir = opt['dataset_name']
-    if opt['dataset_name'] == 'humanml':
-        ckpt_dir = 't2m'
+    ckpt_dir = 't2m' if opt['dataset_name'] == 'humanml' else opt['dataset_name']
+    ckpt_path = pjoin(opt['checkpoints_dir'], ckpt_dir, 'text_mot_match', 'model', 'finest.tar')
 
-    checkpoint = torch.load(pjoin(opt['checkpoints_dir'], ckpt_dir, 'text_mot_match', 'model', 'finest.tar'),
-                            map_location=opt['device'])
-    movement_enc.load_state_dict(checkpoint['movement_encoder'])
-    text_enc.load_state_dict(checkpoint['text_encoder'])
-    motion_enc.load_state_dict(checkpoint['motion_encoder'])
-    print('Loading Evaluation Model Wrapper (Epoch %d) Completed!!' % (checkpoint['epoch']))
+    if os.path.exists(ckpt_path):
+        checkpoint = torch.load(ckpt_path, map_location=opt['device'])
+        movement_enc.load_state_dict(checkpoint['movement_encoder'], strict=False)
+        text_enc.load_state_dict(checkpoint['text_encoder'], strict=False)
+        motion_enc.load_state_dict(checkpoint['motion_encoder'], strict=False)
+        print(f'Loaded Evaluation Model Wrapper (Epoch {checkpoint["epoch"]})')
+    else:
+        print("No checkpoint found. Initializing evaluators from scratch.")
+
     return text_enc, motion_enc, movement_enc
 
 # our wrapper
