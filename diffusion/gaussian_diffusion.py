@@ -16,6 +16,7 @@ from copy import deepcopy
 from diffusion.nn import mean_flat, sum_flat
 from diffusion.losses import normal_kl, discretized_gaussian_log_likelihood
 from data_loaders.humanml.scripts import motion_process
+from utils import loss_util
 from utils.loss_util import masked_l2, masked_goal_l2, quaternion_loss
 from data_loaders.humanml.scripts.motion_process import get_target_location
 
@@ -1297,8 +1298,12 @@ class GaussianDiffusion:
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape  # [bs, njoints, nfeats, nframes]
 
-            # terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
-            terms["rot_mse"] = self.masked_l2(target, model_output, mask, loss_fn=quaternion_loss, entries_norm=False) # mean_flat(rot_mse)
+            terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
+            # rot_start_index = 67
+            # rot_end_index =  151
+            # target_quat = target.squeeze(2).permute(0, 2, 1)[..., rot_start_index:rot_end_index]
+            # output_quat = model_output.squeeze(2).permute(0, 2, 1)[..., rot_start_index:rot_end_index]
+            # terms["rot_mse"] = self.masked_l2(target_quat, output_quat, mask, loss_fn=quaternion_loss, entries_norm=False) # mean_flat(rot_mse)
 
             target_xyz, model_output_xyz = None, None
 
