@@ -111,7 +111,7 @@ def build_evaluators(opt):
 
     checkpoint = torch.load(pjoin(opt['checkpoints_dir'], ckpt_dir, 'text_mot_match', 'model', 'finest.tar'),
                             map_location=opt['device'])
-    movement_enc.load_state_dict(checkpoint['movement_encoder'])
+    movement_enc.load_state_dict(checkpoint['movement_encoder'], strict=False)
     text_enc.load_state_dict(checkpoint['text_encoder'])
     motion_enc.load_state_dict(checkpoint['motion_encoder'])
     print('Loading Evaluation Model Wrapper (Epoch %d) Completed!!' % (checkpoint['epoch']))
