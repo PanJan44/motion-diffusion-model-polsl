@@ -1297,67 +1297,56 @@ class GaussianDiffusion:
                 ModelMeanType.EPSILON: noise,
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape  # [bs, njoints, nfeats, nframes]
-            with open("debug_info.txt", 'a') as f:
-                print(f"data_rep: {self.data_rep}, dataname: {dataset.dataname}", file=f)
-                print(f"Model output shape: {model_output.shape}", file=f)
 
-                terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
+            terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
 
-                target_xyz, model_output_xyz = None, None
+            target_xyz, model_output_xyz = None, None
 
-                if self.lambda_rcxyz > 0.:
-                    target_xyz = get_xyz(target)  # [bs, nvertices(vertices)/njoints(smpl), 3, nframes]
-                    model_output_xyz = get_xyz(model_output)  # [bs, nvertices, 3, nframes]
-                    terms["rcxyz_mse"] = self.masked_l2(target_xyz, model_output_xyz, mask)  # mean_flat((target_xyz - model_output_xyz) ** 2)
+            if self.lambda_rcxyz > 0.:
+                target_xyz = get_xyz(target)  # [bs, nvertices(vertices)/njoints(smpl), 3, nframes]
+                model_output_xyz = get_xyz(model_output)  # [bs, nvertices, 3, nframes]
+                terms["rcxyz_mse"] = self.masked_l2(target_xyz, model_output_xyz, mask)  # mean_flat((target_xyz - model_output_xyz) ** 2)
 
-                    if self.lambda_vel_rcxyz > 0.:
+                if self.lambda_vel_rcxyz > 0.:
+                    if self.data_rep == 'rot6d' and dataset.dataname in ['humanact12', 'uestc']:
+                        target_xyz = get_xyz(target) if target_xyz is None else target_xyz
+                        model_output_xyz = get_xyz(model_output) if model_output_xyz is None else model_output_xyz
+                        target_xyz_vel = (target_xyz[:, :, :, 1:] - target_xyz[:, :, :, :-1])
+                        model_output_xyz_vel = (model_output_xyz[:, :, :, 1:] - model_output_xyz[:, :, :, :-1])
+                        terms["vel_xyz_mse"] = self.masked_l2(target_xyz_vel, model_output_xyz_vel, mask[:, :, :, 1:])
+
+                if self.lambda_fc > 0.:
+                    with torch.autograd.set_detect_anomaly(True):
                         if self.data_rep == 'rot6d' and dataset.dataname in ['humanact12', 'uestc']:
-                            print("Got to the lambda_vel_rcxyz check", file=f)
                             target_xyz = get_xyz(target) if target_xyz is None else target_xyz
                             model_output_xyz = get_xyz(model_output) if model_output_xyz is None else model_output_xyz
-                            target_xyz_vel = (target_xyz[:, :, :, 1:] - target_xyz[:, :, :, :-1])
-                            model_output_xyz_vel = (model_output_xyz[:, :, :, 1:] - model_output_xyz[:, :, :, :-1])
-                            terms["vel_xyz_mse"] = self.masked_l2(target_xyz_vel, model_output_xyz_vel, mask[:, :, :, 1:])
+                            # 'L_Ankle',  # 7, 'R_Ankle',  # 8 , 'L_Foot',  # 10, 'R_Foot',  # 11
+                            l_ankle_idx, r_ankle_idx, l_foot_idx, r_foot_idx = 7, 8, 10, 11
+                            relevant_joints = [l_ankle_idx, l_foot_idx, r_ankle_idx, r_foot_idx]
+                            gt_joint_xyz = target_xyz[:, relevant_joints, :, :]  # [BatchSize, 4, 3, Frames]
+                            gt_joint_vel = torch.linalg.norm(gt_joint_xyz[:, :, :, 1:] - gt_joint_xyz[:, :, :, :-1], axis=2)  # [BatchSize, 4, Frames]
+                            fc_mask = torch.unsqueeze((gt_joint_vel <= 0.01), dim=2).repeat(1, 1, 3, 1)
+                            pred_joint_xyz = model_output_xyz[:, relevant_joints, :, :]  # [BatchSize, 4, 3, Frames]
+                            pred_vel = pred_joint_xyz[:, :, :, 1:] - pred_joint_xyz[:, :, :, :-1]
+                            pred_vel[~fc_mask] = 0
+                            terms["fc"] = self.masked_l2(pred_vel,
+                                                         torch.zeros(pred_vel.shape, device=pred_vel.device),
+                                                         mask[:, :, :, 1:])
+                if self.lambda_vel > 0.:
+                    target_vel = (target[..., 1:] - target[..., :-1])
+                    model_output_vel = (model_output[..., 1:] - model_output[..., :-1])
 
-                    if self.lambda_fc > 0.:
-                        with torch.autograd.set_detect_anomaly(True):
-                            if self.data_rep == 'rot6d' and dataset.dataname in ['humanact12', 'uestc']:
-                                print("Got to the lambda_fc check", file=f)
-                                target_xyz = get_xyz(target) if target_xyz is None else target_xyz
-                                model_output_xyz = get_xyz(model_output) if model_output_xyz is None else model_output_xyz
-                                # 'L_Ankle',  # 7, 'R_Ankle',  # 8 , 'L_Foot',  # 10, 'R_Foot',  # 11
-                                l_ankle_idx, r_ankle_idx, l_foot_idx, r_foot_idx = 7, 8, 10, 11
-                                relevant_joints = [l_ankle_idx, l_foot_idx, r_ankle_idx, r_foot_idx]
-                                gt_joint_xyz = target_xyz[:, relevant_joints, :, :]  # [BatchSize, 4, 3, Frames]
-                                gt_joint_vel = torch.linalg.norm(gt_joint_xyz[:, :, :, 1:] - gt_joint_xyz[:, :, :, :-1], axis=2)  # [BatchSize, 4, Frames]
-                                fc_mask = torch.unsqueeze((gt_joint_vel <= 0.01), dim=2).repeat(1, 1, 3, 1)
-                                pred_joint_xyz = model_output_xyz[:, relevant_joints, :, :]  # [BatchSize, 4, 3, Frames]
-                                pred_vel = pred_joint_xyz[:, :, :, 1:] - pred_joint_xyz[:, :, :, :-1]
-                                pred_vel[~fc_mask] = 0
-                                terms["fc"] = self.masked_l2(pred_vel,
-                                                             torch.zeros(pred_vel.shape, device=pred_vel.device),
-                                                             mask[:, :, :, 1:])
-                    if self.lambda_vel > 0.:
-                        target_vel = (target[..., 1:] - target[..., :-1])
-                        model_output_vel = (model_output[..., 1:] - model_output[..., :-1])
+                    terms["vel_mse"] = self.masked_l2(target_vel[:, :-1, :, :], # Remove last joint, is the root location!
+                                                      model_output_vel[:, :-1, :, :],
+                                                      mask[:, :, :, 1:])  # mean_flat((target_vel - model_output_vel) ** 2)
 
-                        print(f"model_output: {model_output}", file=f)
-                        print(f"model_output.shape: {model_output.shape}", file=f)
-                        print(f"model_output_vel: {model_output_vel}", file=f)
-                        print(f"model_output[..., 1:]: {model_output[..., 1:]}", file=f, flush=True)
-                        print(f"model_output[..., -1:]: {model_output[..., -1:]}", file=f, flush=True)
-
-                        terms["vel_mse"] = self.masked_l2(target_vel[:, :-1, :, :], # Remove last joint, is the root location!
-                                                          model_output_vel[:, :-1, :, :],
-                                                          mask[:, :, :, 1:])  # mean_flat((target_vel - model_output_vel) ** 2)
-
-                    if self.lambda_target_loc > 0.:
-                        assert self.model_mean_type == ModelMeanType.START_X, 'This feature supports only X_start pred for now!'
-                        ref_target = model_kwargs['y']['target_cond']
-                        pred_target = get_target_location(model_output, dataset.mean_gpu, dataset.std_gpu, 
-                                                          model_kwargs['y']['lengths'], dataset.t2m_dataset.opt.joints_num, model.all_goal_joint_names, 
-                                                          model_kwargs['y']['target_joint_names'], model_kwargs['y']['is_heading'])
-                        terms["target_loc"] = masked_goal_l2(pred_target, ref_target, model_kwargs['y'], model.all_goal_joint_names)
+                if self.lambda_target_loc > 0.:
+                    assert self.model_mean_type == ModelMeanType.START_X, 'This feature supports only X_start pred for now!'
+                    ref_target = model_kwargs['y']['target_cond']
+                    pred_target = get_target_location(model_output, dataset.mean_gpu, dataset.std_gpu, 
+                                                      model_kwargs['y']['lengths'], dataset.t2m_dataset.opt.joints_num, model.all_goal_joint_names, 
+                                                      model_kwargs['y']['target_joint_names'], model_kwargs['y']['is_heading'])
+                    terms["target_loc"] = masked_goal_l2(pred_target, ref_target, model_kwargs['y'], model.all_goal_joint_names)
 
 
             terms["loss"] = terms["rot_mse"] + terms.get('vb', 0.) +\
