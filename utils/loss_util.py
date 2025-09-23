@@ -11,7 +11,11 @@ def diff_l2(a, b):
     return (a - b) ** 2
 
 def normalize_quaternion(q):
-    return q / (q.norm(dim=-1, keepdim=True) + 1e-8)
+    """
+    q: [B, 21, 4, T] B->batch size, T number of frames
+    returns [B, 21, 4, T]
+    """
+    return q / (q.norm(dim=2, keepdim=True) + 1e-8)
 
 def quaternion_geodesic_distance(q1, q2):
     q1, q2 = normalize_quaternion(q1), normalize_quaternion(q2)
@@ -19,8 +23,43 @@ def quaternion_geodesic_distance(q1, q2):
     return 2.0 * torch.acos(torch.abs(dot))
 
 def quaternion_loss(q1, q2):
+    """
+    q1, q2: [B, 21, 4, T] B->batch size, T number of frames
+    """
     q1, q2 = normalize_quaternion(q1), normalize_quaternion(q2)
-    return 1.0 - torch.sum(q1 * q2, dim=-1) ** 2
+    return 1.0 - torch.sum(q1 * q2, dim=2) ** 2
+
+def quaternion_geodesic_distance_loss(a, b, mask, loss_fn=quaternion_loss, epsilon=1e-8, entries_norm=True):
+    # assuming a.shape == b.shape == bs, J, Jdim, seqlen
+    # assuming mask.shape == bs, 1, 1, seqlen
+
+    B, _, _, frames_num = a.shape
+    non_rot_a = torch.cat([a[:, :67], a[:, 151:]], dim=1)  # [B, 137, 1, frames_num]
+    non_rot_b = torch.cat([b[:, :67], b[:, 151:]], dim=1)
+    non_rot_loss = diff_l2(non_rot_a, non_rot_b) # [B, 137, 1, frames_num]
+
+    # quaternions
+    rot_a = a[:, 67:151, 0, :].view(B, 21, 4, frames_num)  # [B, 21, 4, frames_num] 21 -> all but root
+    rot_b = b[:, 67:151, 0, :].view(B, 21, 4, frames_num)
+    rot_loss = loss_fn(rot_a, rot_b).unsqueeze(2) # [B, 21, 1, frames_num]
+
+    loss = torch.cat([non_rot_loss, rot_loss], dim=1)  # [B, 158, 1, frames_num]
+    loss = (loss * mask.float()).sum()
+
+    n_entries = a.shape[1]
+    if len(a.shape) > 3:
+        n_entries *= a.shape[2]
+    non_zero_elements = sum_flat(mask)
+    if entries_norm:
+        # In cases the mask is per frame, and not specifying the number of entries per frame, this normalization is needed,
+        # Otherwise set it to False
+        non_zero_elements *= n_entries
+    # print('mask', mask.shape)
+    # print('non_zero_elements', non_zero_elements)
+    # print('loss', loss)
+    mse_loss_val = loss / (non_zero_elements + epsilon)  # Add epsilon to avoid division by zero
+    # print('mse_loss_val', mse_loss_val)
+    return mse_loss_val
 
 def masked_l2(a, b, mask, loss_fn=diff_l2, epsilon=1e-8, entries_norm=True):
     # assuming a.shape == b.shape == bs, J, Jdim, seqlen
