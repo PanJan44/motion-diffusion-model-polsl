@@ -2,6 +2,45 @@ from data_loaders.humanml.networks.modules import *
 from data_loaders.humanml.utils.word_vectorizer import POS_enumerator
 from os.path import join as pjoin
 
+def build_models_safe(opt):
+    # Initialize models
+    movement_enc = MovementConvEncoder(opt.dim_pose-4, 
+                                       opt.dim_movement_enc_hidden, 
+                                       opt.dim_movement_latent)
+    text_enc = TextEncoderBiGRUCo(word_size=opt.dim_word,
+                                  pos_size=opt.dim_pos_ohot,
+                                  hidden_size=opt.dim_text_hidden,
+                                  output_size=opt.dim_coemb_hidden,
+                                  device=opt.device)
+    motion_enc = MotionEncoderBiGRUCo(input_size=opt.dim_movement_latent,
+                                      hidden_size=opt.dim_motion_hidden,
+                                      output_size=opt.dim_coemb_hidden,
+                                      device=opt.device)
+    
+    # Attempt to load checkpoint, skip if missing
+    ckpt_path = pjoin(opt.checkpoints_dir, opt.dataset_name, 'text_mot_match', 'model', 'finest.tar')
+    if os.path.exists(ckpt_path):
+        checkpoint = torch.load(ckpt_path, map_location=opt.device)
+        # Only load matching keys (avoids dim mismatch)
+        movement_enc.load_state_dict(checkpoint['movement_encoder'], strict=False)
+        text_enc.load_state_dict(checkpoint['text_encoder'])
+        motion_enc.load_state_dict(checkpoint['motion_encoder'])
+        print(f"Loaded checkpoint (Epoch {checkpoint['epoch']})")
+    else:
+        print("No checkpoint found. Initializing models from scratch.")
+
+    # Move models to device
+    movement_enc.to(opt.device)
+    text_enc.to(opt.device)
+    motion_enc.to(opt.device)
+
+    # Set to eval mode by default (training code can call .train())
+    movement_enc.eval()
+    text_enc.eval()
+    motion_enc.eval()
+
+    return text_enc, motion_enc, movement_enc
+
 def build_models(opt):
     movement_enc = MovementConvEncoder(opt.dim_pose-4, opt.dim_movement_enc_hidden, opt.dim_movement_latent)
     text_enc = TextEncoderBiGRUCo(word_size=opt.dim_word,
@@ -43,7 +82,8 @@ class EvaluatorModelWrapper(object):
         opt.dim_text_hidden = 512
         opt.dim_coemb_hidden = 512
 
-        self.text_encoder, self.motion_encoder, self.movement_encoder = build_models(opt)
+        # self.text_encoder, self.motion_encoder, self.movement_encoder = build_models(opt)
+        self.text_encoder, self.motion_encoder, self.movement_encoder = build_models_safe(opt)
         self.opt = opt
         self.device = opt.device
 
