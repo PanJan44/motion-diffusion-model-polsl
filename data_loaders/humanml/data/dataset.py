@@ -102,17 +102,17 @@ class Text2MotionDataset(data.Dataset):
             # ric_data (B, seq_len, (joint_num - 1)*3)
             std[4: 4 + (joints_num - 1) * 3] = std[4: 4 + (joints_num - 1) * 3] / 1.0
             # rot_data (B, seq_len, (joint_num - 1)*6)
-            std[4 + (joints_num - 1) * 3: 4 + (joints_num - 1) * 9] = std[4 + (joints_num - 1) * 3: 4 + (
-                        joints_num - 1) * 9] / 1.0
+            std[4 + (joints_num - 1) * 3: 4 + (joints_num - 1) * 7] = std[4 + (joints_num - 1) * 3: 4 + (
+                        joints_num - 1) * 7] / 1.0
             # local_velocity (B, seq_len, joint_num*3)
-            std[4 + (joints_num - 1) * 9: 4 + (joints_num - 1) * 9 + joints_num * 3] = std[
-                                                                                       4 + (joints_num - 1) * 9: 4 + (
-                                                                                                   joints_num - 1) * 9 + joints_num * 3] / 1.0
+            std[4 + (joints_num - 1) * 7: 4 + (joints_num - 1) * 7 + joints_num * 3] = std[
+                                                                                       4 + (joints_num - 1) * 7: 4 + (
+                                                                                                   joints_num - 1) * 7 + joints_num * 3] / 1.0
             # foot contact (B, seq_len, 4)
-            std[4 + (joints_num - 1) * 9 + joints_num * 3:] = std[
-                                                              4 + (joints_num - 1) * 9 + joints_num * 3:] / opt.feat_bias
+            std[4 + (joints_num - 1) * 7 + joints_num * 3:] = std[
+                                                              4 + (joints_num - 1) * 7 + joints_num * 3:] / opt.feat_bias
 
-            assert 4 + (joints_num - 1) * 9 + joints_num * 3 + 4 == mean.shape[-1]
+            assert 4 + (joints_num - 1) * 7 + joints_num * 3 + 4 == mean.shape[-1]
             np.save(pjoin(opt.meta_dir, 'mean.npy'), mean)
             np.save(pjoin(opt.meta_dir, 'std.npy'), std)
 
