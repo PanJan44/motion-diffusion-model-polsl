@@ -2,6 +2,8 @@ from diffusion.nn import mean_flat, sum_flat
 import torch
 import numpy as np
 
+weight = 6.5
+
 def angle_l2(angle1, angle2):
     a = angle1 - angle2
     a = (a + (torch.pi/2)) % torch.pi - (torch.pi/2)
@@ -41,7 +43,7 @@ def quaternion_geodesic_distance_loss(a, b, mask, loss_fn=quaternion_loss, epsil
     # quaternions
     rot_a = a[:, 67:151, 0, :].view(B, 21, 4, frames_num)  # [B, 21, 4, frames_num] 21 -> all but root
     rot_b = b[:, 67:151, 0, :].view(B, 21, 4, frames_num)
-    rot_loss = loss_fn(rot_a, rot_b).unsqueeze(2) # [B, 21, 1, frames_num]
+    rot_loss = loss_fn(rot_a, rot_b).unsqueeze(2) * weight # [B, 21, 1, frames_num]
 
     loss = torch.cat([non_rot_loss, rot_loss], dim=1)  # [B, 158, 1, frames_num]
     loss = (loss * mask.float()).sum()
