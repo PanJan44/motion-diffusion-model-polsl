@@ -1,6 +1,7 @@
 from data_loaders.humanml.networks.modules import *
 from data_loaders.humanml.utils.word_vectorizer import POS_enumerator
 from os.path import join as pjoin
+import os
 
 def build_models_safe(opt):
     # Initialize models
@@ -145,16 +146,16 @@ def build_evaluators(opt):
                                       output_size=opt['dim_coemb_hidden'],
                                       device=opt['device'])
 
-    ckpt_dir = opt['dataset_name']
-    if opt['dataset_name'] == 'humanml':
-        ckpt_dir = 't2m'
+    ckpt_dir = 't2m' if opt['dataset_name'] == 'humanml' else opt['dataset_name']
+    ckpt_path = pjoin(opt['checkpoints_dir'], ckpt_dir, 'text_mot_match', 'model', 'finest.tar')
 
-    checkpoint = torch.load(pjoin(opt['checkpoints_dir'], ckpt_dir, 'text_mot_match', 'model', 'finest.tar'),
-                            map_location=opt['device'])
-    movement_enc.load_state_dict(checkpoint['movement_encoder'])
-    text_enc.load_state_dict(checkpoint['text_encoder'])
-    motion_enc.load_state_dict(checkpoint['motion_encoder'])
-    print('Loading Evaluation Model Wrapper (Epoch %d) Completed!!' % (checkpoint['epoch']))
+    if os.path.exists(ckpt_path):
+        checkpoint = torch.load(pjoin(opt['checkpoints_dir'], ckpt_dir, 'text_mot_match', 'model', 'finest.tar'),
+                                map_location=opt['device'])
+        movement_enc.load_state_dict(checkpoint['movement_encoder'])
+        text_enc.load_state_dict(checkpoint['text_encoder'])
+        motion_enc.load_state_dict(checkpoint['motion_encoder'])
+        print('Loading Evaluation Model Wrapper (Epoch %d) Completed!!' % (checkpoint['epoch']))
     return text_enc, motion_enc, movement_enc
 
 # our wrapper
