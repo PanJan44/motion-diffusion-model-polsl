@@ -240,7 +240,7 @@ def main(args=None):
             animation_save_path = os.path.join(out_path, save_file)
             gt_frames = np.arange(args.context_len) if args.context_len > 0 and not args.autoregressive else []
             animations[sample_i, rep_i] = plot_3d_motion(animation_save_path, 
-                                                         skeleton, motion, dataset=args.dataset, title=caption, 
+                                                         skeleton, motion, dataset=args.dataset, title="", 
                                                          fps=fps, gt_frames=gt_frames)
             rep_files.append(animation_save_path)
 

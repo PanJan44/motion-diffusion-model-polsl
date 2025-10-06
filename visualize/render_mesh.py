@@ -12,7 +12,8 @@ if __name__ == '__main__':
     params = parser.parse_args()
 
     assert params.input_path.endswith('.mp4')
-    parsed_name = os.path.basename(params.input_path).replace('.mp4', '').replace('sample', '').replace('rep', '')
+    parsed_name = os.path.basename(params.input_path).replace('.mp4', '').replace('samples_', '').replace('rep', '')
+    parsed_name = parsed_name.replace("_to","")
     sample_i, rep_i = [int(e) for e in parsed_name.split('_')]
     npy_path = os.path.join(os.path.dirname(params.input_path), 'results.npy')
     out_npy_path = params.input_path.replace('.mp4', '_smpl_params.npy')
