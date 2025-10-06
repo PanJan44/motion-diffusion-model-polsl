@@ -18,6 +18,7 @@ from data_loaders.humanml.utils.plot_script import plot_3d_motion
 import shutil
 from data_loaders.tensors import collate
 from moviepy.editor import clips_array
+import time
 
 
 def main(args=None):
@@ -141,9 +142,31 @@ def main(args=None):
         else:
             raise NotImplementedError('DiP model only supports BERT text encoder at the moment. If you implement this, please send a PR!')
     
+
+    generation_times = []
+    out_file = "generation_times.txt"
+    time_file_path = os.path.join(out_file, 'generation_time.txt')
+    with open(time_file_path, 'w') as f:
+        f.write("Generation Times Log\n")
+        f.write("====================\n")
+        f.write(f"Model: {os.path.basename(args.model_path)}\n")
+        f.write(f"Dataset: {args.dataset}\n")
+        f.write(f"Num samples: {args.num_samples}\n")
+        f.write(f"Num repetitions: {args.num_repetitions}\n")
+        f.write(f"Motion length: {args.motion_length}s\n")
+        f.write(f"Guidance param: {args.guidance_param}\n")
+        if 'text' in model_kwargs['y'].keys():
+            f.write(f"Prompts: {model_kwargs['y']['text']}\n")
+        elif 'action_text' in model_kwargs['y'].keys():
+            f.write(f"Actions: {model_kwargs['y']['action_text']}\n")
+        f.write("\n")
+        f.write("Individual Generation Times:\n")
+        f.write("----------------------------\n")
+
     for rep_i in range(args.num_repetitions):
         print(f'### Sampling [repetitions #{rep_i}]')
 
+        start_time = time.time()
         sample = sample_fn(
             model,
             motion_shape,
@@ -156,6 +179,9 @@ def main(args=None):
             noise=None,
             const_noise=False,
         )
+
+        generation_time = time.time() - start_time
+        generation_times.append(generation_time)
 
         # Recover XYZ *positions* from HumanML3D vector representation
         if model.data_rep == 'hml_vec':
@@ -170,11 +196,27 @@ def main(args=None):
                                jointstype='smpl', vertstrans=True, betas=None, beta=0, glob_rot=None,
                                get_rotations_back=False)
 
+        current_prompt=""
         if args.unconstrained:
             all_text += ['unconstrained'] * args.num_samples
         else:
             text_key = 'text' if 'text' in model_kwargs['y'] else 'action_text'
-            all_text += model_kwargs['y'][text_key]
+            # For batch generation, get the first prompt or all prompts
+            if isinstance(model_kwargs['y'][text_key], list) and len(model_kwargs['y'][text_key]) > 0:
+                if args.num_samples == 1:
+                    current_prompt = model_kwargs['y'][text_key][0]
+                else:
+                    current_prompt = f"Batch of {args.num_samples} prompts"
+            else:
+                current_prompt = str(model_kwargs['y'][text_key])
+
+        # else:
+        #     text_key = 'text' if 'text' in model_kwargs['y'] else 'action_text'
+        #     all_text += model_kwargs['y'][text_key]
+
+        # log to file
+        with open(out_file, 'a') as f:
+            f.write(f"Rep {rep_i:02d}: {generation_time:.2f}s | Prompt: {current_prompt}\n")
 
         all_motions.append(sample.cpu().numpy())
         _len = model_kwargs['y']['lengths'].cpu().numpy()
