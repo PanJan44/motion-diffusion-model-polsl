@@ -145,8 +145,7 @@ def main(args=None):
 
     generation_times = []
     out_file = "generation_times.txt"
-    time_file_path = os.path.join(out_file, 'generation_time.txt')
-    with open(time_file_path, 'w') as f:
+    with open(out_file, 'a') as f:
         f.write("Generation Times Log\n")
         f.write("====================\n")
         f.write(f"Model: {os.path.basename(args.model_path)}\n")
@@ -201,22 +200,11 @@ def main(args=None):
             all_text += ['unconstrained'] * args.num_samples
         else:
             text_key = 'text' if 'text' in model_kwargs['y'] else 'action_text'
-            # For batch generation, get the first prompt or all prompts
-            if isinstance(model_kwargs['y'][text_key], list) and len(model_kwargs['y'][text_key]) > 0:
-                if args.num_samples == 1:
-                    current_prompt = model_kwargs['y'][text_key][0]
-                else:
-                    current_prompt = f"Batch of {args.num_samples} prompts"
-            else:
-                current_prompt = str(model_kwargs['y'][text_key])
-
-        # else:
-        #     text_key = 'text' if 'text' in model_kwargs['y'] else 'action_text'
-        #     all_text += model_kwargs['y'][text_key]
+            all_text += model_kwargs['y'][text_key]
 
         # log to file
         with open(out_file, 'a') as f:
-            f.write(f"Rep {rep_i:02d}: {generation_time:.2f}s | Prompt: {current_prompt}\n")
+            f.write(f"Rep {rep_i:02d}: {generation_time:.2f}s | Prompt: {args.text_prompt}\n")
 
         all_motions.append(sample.cpu().numpy())
         _len = model_kwargs['y']['lengths'].cpu().numpy()
@@ -231,6 +219,28 @@ def main(args=None):
     all_motions = all_motions[:total_num_samples]  # [bs, njoints, 6, seqlen]
     all_text = all_text[:total_num_samples]
     all_lengths = np.concatenate(all_lengths, axis=0)[:total_num_samples]
+
+    if generation_times:
+        mean_time = sum(generation_times) / len(generation_times)
+        min_time = min(generation_times)
+        max_time = max(generation_times)
+        
+        with open(out_file, 'a') as f:
+            f.write("\n")
+            f.write("Summary Statistics:\n")
+            f.write("-------------------\n")
+            f.write(f"Total generations: {len(generation_times)}\n")
+            f.write(f"Mean generation time: {mean_time:.2f}s\n")
+            f.write(f"Min generation time: {min_time:.2f}s\n")
+            f.write(f"Max generation time: {max_time:.2f}s\n")
+            f.write(f"Total time for all generations: {sum(generation_times):.2f}s\n")
+        
+        print(f"\nGeneration time summary:")
+        print(f"Mean: {mean_time:.2f}s, Min: {min_time:.2f}s, Max: {max_time:.2f}s")
+        print()
+
+
+    generation_times = []
 
     if os.path.exists(out_path):
         shutil.rmtree(out_path)
