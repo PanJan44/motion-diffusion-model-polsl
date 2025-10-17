@@ -33,7 +33,7 @@ class npy2obj:
         self.real_num_frames = self.motions['lengths'][self.absl_idx]
 
         self.vertices = self.rot2xyz(torch.tensor(self.motions['motion']), mask=None,
-                                     pose_rep='rot6d', translation=True, glob=True,
+                                     pose_rep='rotquat', translation=True, glob=True,
                                      jointstype='vertices',
                                      # jointstype='smpl',  # for joint locations
                                      vertstrans=True)
