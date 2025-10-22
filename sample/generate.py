@@ -165,6 +165,7 @@ def main(args=None):
     for rep_i in range(args.num_repetitions):
         print(f'### Sampling [repetitions #{rep_i}]')
 
+        torch.cuda.synchronize()
         start_time = time.time()
         sample = sample_fn(
             model,
@@ -179,6 +180,7 @@ def main(args=None):
             const_noise=False,
         )
 
+        torch.cuda.synchronize()
         generation_time = time.time() - start_time
         generation_times.append(generation_time)
 
@@ -222,6 +224,7 @@ def main(args=None):
 
     if generation_times:
         mean_time = sum(generation_times) / len(generation_times)
+        std = np.std(generation_times)
         min_time = min(generation_times)
         max_time = max(generation_times)
         
@@ -233,6 +236,7 @@ def main(args=None):
             f.write(f"Mean generation time: {mean_time:.2f}s\n")
             f.write(f"Min generation time: {min_time:.2f}s\n")
             f.write(f"Max generation time: {max_time:.2f}s\n")
+            f.write(f"Std: {std:.2f}s\n")
             f.write(f"Total time for all generations: {sum(generation_times):.2f}s\n")
         
         print(f"\nGeneration time summary:")
